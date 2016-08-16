@@ -132,15 +132,33 @@ func (s *socket) loop() error {
 	}
 	s.socketHandler.onPacket(nil, &p)
 	for {
+		var (
+			p   packet
+			err error
+			ret []interface{}
+		)
+
 		decoder := newDecoder(s.conn)
-		var p packet
 		if err := decoder.Decode(&p); err != nil {
 			return err
 		}
-		ret, err := s.socketHandler.onPacket(decoder, &p)
-		if err != nil {
-			return err
+
+		if p.Type != _CONNECT {
+			// XXX: handler disabled on connect to prevent firing
+			// connection handler multiple times (and more times than
+			// disconnection handler).
+			// It probably breaks namespace support but we don't use
+			// them anyway and the current namespace / socket relashionship
+			// is IMO broken.
+			// Namespaces should hold connection, disconnection and other
+			// event handlers to work like the reference socketIO js
+			// implementation, not a connection global socket handler.
+			ret, err = s.socketHandler.onPacket(decoder, &p)
+			if err != nil {
+				return err
+			}
 		}
+
 		switch p.Type {
 		case _CONNECT:
 			s.namespace = p.NSP
